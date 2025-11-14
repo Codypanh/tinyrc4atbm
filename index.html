@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TinyRC4 Web Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            background-image: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: #ffffff;
+            padding: 30px; 
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600; 
+            color: #34495e;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px; 
+            box-sizing: border-box; 
+            border: 1px solid #ccc; 
+            border-radius: 6px;
+            font-size: 15px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        
+        input[type="text"]:focus, textarea:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 8px rgba(0,123,255,0.2); 
+            outline: none;
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical; 
+        }
+
+        .buttons {
+            text-align: center;
+            margin-bottom: 25px;
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        /* Thêm hiệu ứng HOVER cho nút */
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        #btnEncrypt {
+            background-color: #28a745;
+            color: white;
+        }
+        #btnDecrypt {
+            background-color: #007bff;
+            color: white;
+        }
+
+        #results {
+            margin-top: 20px;
+        }
+        
+        #results h3 {
+             color: #34495e;
+        }
+
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            white-space: pre-wrap; 
+            word-wrap: break-word; 
+            border: 1px solid #eee;
+            min-height: 40px;
+            line-height: 1.5;
+        }
+
+        .note {
+            font-style: italic;
+            color: #555;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Trình Mã Hóa TinyRC4</h1>
+        
+        <div class="form-group">
+            <label for="key">Khóa (4 số 0-15, ví dụ: 4 2 3 1 hoặc 4231):</label>
+            <input type="text" id="key" placeholder="4 2 3 1" value="4 2 3 1">
+        </div>
+        
+        <div class="form-group">
+            <label for="text">Dữ liệu:</label>
+            <textarea id="text" placeholder="Nhập văn bản để mã hóa (ví dụ: HELLO)">hello</textarea>
+        </div>
+        
+        <div class="buttons">
+            <button id="btnEncrypt">Mã hóa</button>
+            <button id="btnDecrypt">Giải mã</button>
+        </div>
+        
+        <div id="results">
+            <h3>Kết quả:</h3>
+            <div id="result-content" style="display: none;">
+                <!-- Kết quả mã hóa (Encrypt) -->
+                <div id="encrypt-results" style="display: none;">
+                    <div class="form-group">
+                        <label>Hex:</label>
+                        <pre id="output-hex">...</pre>
+                    </div>
+                    <div class="form-group">
+                        <label>Ký tự (Latin-1):</label>
+                        <pre id="output-chars">...</pre>
+                    </div>
+                    <div class="form-group">
+                        <label>Keystream:</label>
+                        <pre id="output-keystream">...</pre>
+                    </div>
+                </div>
+                <!-- Kết quả giải mã (Decrypt) -->
+                <div id="decrypt-results" style="display: none;">
+                    <div class="form-group">
+                        <label>Văn bản (Latin-1):</label>
+                        <pre id="output-text">...</pre>
+                    </div>
+                    <div class="form-group">
+                        <label>Bytes (mã ASCII):</label>
+                        <pre id="output-bytes">...</pre>
+                    </div>
+                </div>
+            </div>
+            <pre id="output-result">...</pre>
+            <p class="note" id="output-note"></p>
+        </div>
+    </div>
+
+    <script>
+        async function processData(mode) {
+            let key = document.getElementById('key').value.trim();
+            const text = document.getElementById('text').value;
+            
+            // Xử lý khóa: cho phép "4 2 3 1" hoặc "4231"
+            if (!key.includes(' ') && key.length > 0) {
+                // Nếu không có khoảng trắng, thêm khoảng trắng giữa từng ký tự
+                key = Array.from(key).join(' ');
+            }
+            
+            // Ẩn kết quả cũ
+            document.getElementById('result-content').style.display = 'none';
+            document.getElementById('output-result').textContent = 'Đang xử lý...';
+            document.getElementById('output-note').textContent = '';
+
+            try {
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        mode: mode,
+                        key: key,
+                        text: text
+                    })
+                });
+
+                const data = await response.json(); 
+
+                if (!response.ok) {
+                    document.getElementById('output-result').textContent = 'Lỗi: ' + (data.error || 'Lỗi không xác định');
+                    return;
+                }
+
+                if (data.success) {
+                    document.getElementById('output-note').textContent = data.note || '';
+                    
+                    if (mode === 'encrypt') {
+                        // Hiển thị kết quả mã hóa
+                        document.getElementById('encrypt-results').style.display = 'block';
+                        document.getElementById('decrypt-results').style.display = 'none';
+                        document.getElementById('output-hex').textContent = data.result_hex || 'N/A';
+                        document.getElementById('output-chars').textContent = data.result_chars || 'N/A';
+                        document.getElementById('output-keystream').textContent = JSON.stringify(data.keystream || []);
+                        document.getElementById('output-result').textContent = '';
+                    } else if (mode === 'decrypt') {
+                        // Hiển thị kết quả giải mã
+                        document.getElementById('encrypt-results').style.display = 'none';
+                        document.getElementById('decrypt-results').style.display = 'block';
+                        document.getElementById('output-text').textContent = data.result_text || 'N/A';
+                        document.getElementById('output-bytes').textContent = JSON.stringify(data.result_bytes || []);
+                        document.getElementById('output-result').textContent = '';
+                    }
+                    
+                    document.getElementById('result-content').style.display = 'block';
+                } else {
+                    document.getElementById('output-result').textContent = 'Lỗi: ' + data.error;
+                }
+            } catch (error) {
+                console.error('Lỗi fetch:', error);
+                document.getElementById('output-result').textContent = 'Lỗi kết nối máy chủ: ' + error.message;
+            }
+        }
+
+        document.getElementById('btnEncrypt').addEventListener('click', () => processData('encrypt'));
+        document.getElementById('btnDecrypt').addEventListener('click', () => processData('decrypt'));
+    </script>
+</body>
+</html>
